@@ -31,6 +31,15 @@
 
 ---
 
+## L-003: 다중 편집 Notion 페이지 → `update_content` 직전 재-fetch 필수
+
+- **Symptom**: 세션 초반에 fetch 한 페이지 내용으로 `update_content` 의 `old_str` 을 구성했는데, 그 사이 다른 담당자가 섹션을 새로 채워 넣어 (예: `<empty-block/>` → 충실한 표) old_str 매칭 실패 (`No matches found`). 매칭 실패가 안 났다면 남의 작업을 덮어쓸 뻔함.
+- **Why it happened**: Notion 페이지는 공동 편집 대상. 세션 시작 시점 fetch 는 스냅샷이라 시간이 지나면 stale. 담당자 2명 이상이면 분 단위로 내용이 바뀜.
+- **Correction**: 공유 Notion 페이지를 `update_content` / `replace_content` 로 수정하기 직전 **항상 재-fetch** 하여 현재 상태로 old_str 을 재구성. 특히 빈 섹션(`<empty-block/>`)을 채울 때는 누가 이미 채웠는지 확인 후 진행 — 덮어쓰기 대신 surgical 정정.
+- **Trigger**: 담당자 2명 이상인 Notion 페이지 수정, 세션 중반 이후의 `mcp__claude_ai_Notion__notion-update-page` `update_content`/`replace_content`, `<empty-block/>` 를 콘텐츠로 교체하려는 경우.
+
+---
+
 ## 예상 후보 (발생 시 정식 항목으로 승격)
 
 본 프로젝트가 Phase 2 마이그레이션 단계에서 실제 작업이 진행되면, 발견되는 반복 실수를 이 파일에 누적.

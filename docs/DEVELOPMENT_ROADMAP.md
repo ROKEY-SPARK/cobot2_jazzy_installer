@@ -82,7 +82,7 @@ ROS2 Humble installer → ROS2 Jazzy installer 마이그레이션. 1–4주, sol
 
 ## Phase 4: 애플리케이션 컨테이너화 (사용자 요청 2026-05-27)
 
-**목표**: host 에 설치된 jazzy 환경 위에서 두 개의 독립 마이크로서비스를 Docker container 로 분리 실행. 컨테이너는 ROS2 topic 으로 host (DSR 제어 노드) 와 통신.
+**목표**: host 에 설치된 jazzy 환경 위에서 두 개의 독립 마이크로서비스를 Docker container 로 분리 실행. 두 컨테이너는 **ROS2 service server** (yolo = `/get_3d_position`, voice = `/get_keyword`) 로 host 의 `robot_control` 노드(client)에 응답한다. yolo 컨테이너는 `realsense2_camera` 노드를 자체 포함해 USB 카메라를 직접 열고 (`--device` passthrough) `/camera/camera/*` 를 컨테이너 안에서 publish/subscribe 한다.
 
 **책임 분리 원칙 (사용자 결정 2026-05-27)**:
 - **System (host) layer = `bash install.sh`** — NVIDIA driver / Docker CE / ROS2 jazzy / CUDA toolkit / DSR colcon 워크스페이스 / RealSense SDK
@@ -95,25 +95,36 @@ ROS2 Humble installer → ROS2 Jazzy installer 마이그레이션. 1–4주, sol
   docker compose up -d               # 컨테이너 layer 기동
   ```
 
-**의도된 아키텍처** (사용자 결정 2026-05-27):
+**의도된 아키텍처** (사용자 결정 2026-05-27, service 기반 구조 확정 2026-05-28):
 ```
-[host: jazzy installer 산출 + DSR 제어 노드]
-         ↕ ROS2 topic (예: /detect/bbox, /voice/text)
-  ┌──────────────┴───────────────┐
-[yolo-detection 컨테이너]     [voice-processing 컨테이너]
- PyTorch + CUDA + ultralytics  langchain + openai + PyAudio
- cv2 + pyrealsense2            openwakeword + tflite-runtime
- rclpy (ROS2 노드)              rclpy (ROS2 노드)
-```
+[host (Ubuntu 24.04 + ROS2 jazzy)]
+  robot_control 노드 (pick_and_place) ──client──► 아래 두 service
+  DSR control 노드 (dsr_bringup2) ──DSR_ROBOT2 API / TCP 12345──► 실기 Cobot
+        ▲ service response            ▲ service response
+        │                             │
+[voice-processing 컨테이너]      [yolo-detection 컨테이너]
+ service server /get_keyword      service server /get_3d_position
+   (std_srvs/Trigger)               (od_msg/SrvDepthPosition)
+ langchain + openai + PyAudio     PyTorch + CUDA + ultralytics
+ openwakeword + tflite-runtime    cv_bridge + od_msg
+ rclpy (ROS2 노드)                 realsense2_camera + object_detection (컨테이너 내부 /camera/camera/*)
 
-- [ ] 4-1. `containers/yolo-detection/Dockerfile` + 빌드 스크립트
+모두 network_mode: host + 동일 ROS_DOMAIN_ID / RMW_IMPLEMENTATION (DDS discovery)
+```
+> topic publisher 가 아니라 **service server** 다 — yolo/voice 는 robot_control 의 요청에 응답하는 구조. RealSense 카메라는 yolo 컨테이너가 USB passthrough 로 직접 열고 자기 안에서 처리한다 (host realsense 노드 아님). udev rule·커널 모듈만 host 에 둔다.
+
+- [ ] 4-1. `containers/yolo-detection/Dockerfile` + 빌드 스크립트 (cobot2_ws `object_detection` + `realsense2_camera`)
   - Base: `ros:jazzy-ros-base-noble` 명시 핀 (Hard Rule #6)
-  - 내부: ultralytics + PyTorch (cu${CUDA_VERSION}) + opencv-python + pyrealsense2
+  - **역할 = service server** `/get_3d_position` (`od_msg/SrvDepthPosition`). client 는 host 의 `robot_control` 노드. topic publish 아님 — request/response 구조.
+  - **카메라 = 컨테이너 자체 포함** (구조 결정 2026-05-28, 기존 host-side 안에서 변경): `realsense2_camera` 노드를 yolo 컨테이너 안에서 실행 → USB 직접 열고 `/camera/camera/*` 를 컨테이너 안에서 publish, `object_detection` 의 ImgNode 가 같은 topic subscribe. 근거 = workflow 단순화 + 카메라/추론 한 이미지로 자기완결 배포.
+  - **USB device passthrough 필요**: 4-3 docker-compose 에 `--device /dev/bus/usb`. udev rule·커널 모듈은 host 책임 (컨테이너로 못 옮김 — a04 설치).
+  - 내부: ultralytics + PyTorch (cu${CUDA_VERSION}) + opencv-python + `cv_bridge` + `ros-jazzy-realsense2-camera` + librealsense2 runtime + `od_msg` (custom interface)
   - **GPU 패스스루**: NVIDIA Container Toolkit 의존 (host a01 에서 driver 설치되어 있다는 전제)
-  - 카메라 device passthrough: `--device /dev/video*` / `--device /dev/bus/usb`
   - 모델 가중치 / 설정은 volume mount (image 안에 안 박음)
-- [ ] 4-2. `containers/voice-processing/Dockerfile` + 빌드 스크립트
+  - **`od_msg` 빌드 정합성**: yolo 컨테이너 + host(robot_control) + voice 가 동일 `od_msg` 정의를 빌드해야 service type hash 일치. 단일 source = `cobot2_ws/od_msg`
+- [ ] 4-2. `containers/voice-processing/Dockerfile` + 빌드 스크립트 (cobot2_ws `voice_processing` 패키지)
   - Base: `ros:jazzy-ros-base-noble` 명시 핀
+  - **역할 = service server** `/get_keyword` (`std_srvs/Trigger`). client 는 host 의 `robot_control` 노드. wake-word 발화 → STT → keyword 추출 결과를 response 로 반환.
   - 내부: langchain + langchain-openai + openai + PyAudio + openwakeword + tflite-runtime + sounddevice
   - **오디오 입력 소스 = 노트북 내장 마이크** (USB 외장 마이크 아님, 사용자 결정 2026-05-27)
   - 권장 audio passthrough: **PulseAudio / PipeWire socket mount** (Ubuntu 24.04 기본 PipeWire 와 호환). raw ALSA (`/dev/snd`) 는 desktop session 의 mixer 와 충돌 위험 + 디바이스 번호 환경 의존성. PipeWire 데몬 경유가 안전.
@@ -137,6 +148,7 @@ ROS2 Humble installer → ROS2 Jazzy installer 마이그레이션. 1–4주, sol
   - 후보 (a) `network_mode: host` — DDS multicast 자연 동작, 보안↓
   - 후보 (b) custom bridge + `ROS_DOMAIN_ID` 격리 — 보안↑, DDS discovery 설정 필요
   - 후보 (c) `host` 와 동등하나 명시적 (`--network host` + ROS_DOMAIN_ID 고정)
+  - host↔container 통신 = 2개 service (`/get_3d_position`, `/get_keyword`) request/response (DDS). camera topic (`/camera/camera/*`) 은 yolo 컨테이너 내부 (realsense → object_detection). `network_mode: host` 가 service discovery 커버.
   - DSR 에뮬레이터 (`doosanrobot/dsr_emulator:3.0.1`) 도 같은 네트워크 안인지 결정
 - [ ] 4-5. Image 태그 핀 + reproducibility (Hard Rule #6, ADR-007 정합)
   - Base image (`ros:jazzy-ros-base-noble`) 명시 태그, 절대 `latest` 금지

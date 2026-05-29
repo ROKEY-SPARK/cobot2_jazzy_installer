@@ -1,0 +1,59 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '=== Session Start ==='; echo \"Project: $(basename $(pwd))\"; HANDOFF=\"\"; if [ -f '.claude/memory/session-handoff-LATEST.md' ]; then HANDOFF='.claude/memory/session-handoff-LATEST.md'; elif [ -f 'memory/session-handoff-LATEST.md' ]; then HANDOFF='memory/session-handoff-LATEST.md'; fi; if [ -n \"$HANDOFF\" ]; then echo '--- Handoff ---'; cat \"$HANDOFF\"; fi; if [ -f 'tasks/lessons.md' ]; then echo '--- Lessons ---'; cat 'tasks/lessons.md'; fi"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[PRE-COMPACT] memory/session-handoff-LATEST.md 갱신 후 컴팩트하세요. /session-checkpoint 사용 가능.'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[SESSION END] 다음 세션을 위해 컨텍스트 저장을 고려하세요. /session-checkpoint 추천.'"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[SUBAGENT STOP] agent_id=${AGENT_ID:-unknown} | transcript=${AGENT_TRANSCRIPT_PATH:-none}\""
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "andrej-karpathy-skills@karpathy-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "karpathy-skills": {
+      "source": {
+        "source": "github",
+        "repo": "forrestchang/andrej-karpathy-skills"
+      }
+    }
+  },
+  "theme": "auto",
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
+}

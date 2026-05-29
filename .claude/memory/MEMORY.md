@@ -46,6 +46,9 @@
   - 시스템 요약: https://www.notion.so/teamsparkx/Rokey-2-Version-20260522-36c563918e59803cb719ca55e3e3369f
   - 전체 pip list: https://www.notion.so/teamsparkx/pip-list-Version-20260522-36c563918e5980c0af76f8b4332454fe
   - 핵심 발견: `apt upgrade -y` drift (NVIDIA 570→580, Docker 23→29), RealSense 22.04 공급 중단 → Noble 정식 복귀 예정, pip/setuptools/wheel 4년 노후
+- **작업 참조용 노션 페이지 (2026-05-27 작성)** — Phase 4 Dockerfile / docker-compose.yml 작성 시 참조:
+  - "Docker 컨테이너에서 코드를 실행하는 구조와 코드 전달 방법": https://www.notion.so/teamsparkx/36d563918e59803da5b9c761da8a05d0
+  - "host PC ↔ 컨테이너, 컨테이너 ↔ 컨테이너 통신 구조 — 일반 소켓 vs DDS": https://www.notion.so/teamsparkx/36d563918e5980f8866ccfe64de99119
 
 ## 현재 세션 컨텍스트
 - Phase 1 완료 + ADR-003 검증 GO + Notion 보고서 (https://www.notion.so/teamsparkx/36c563918e598000a563f72bdd3ba57c) 작성.
@@ -59,6 +62,7 @@
 - NVIDIA 가 Ubuntu 24.04 용 `cuda-keyring_1.1-1_all.deb` 표준 제공 → 1.4GB local installer 방식 modernize 가능 (Phase 2-6).
 - **GitHub publish 의도 없음 (ADR-005)**: 본 레포는 로컬 셋업 도구. `.gitignore` 항목 추가, lock 파일 커밋, commit 메시지 등 git artifact 관련 모든 사항은 사용자 명시적 요청 시에만 처리. 자동 권유 금지.
 - **host Python 책임 (ADR-008, 2026-05-27)**: host 에 venv 없음. application Python 패키지는 모두 Phase 4 컨테이너 image 안. host 는 system Python (apt 의 `python3-*`, `/opt/ros/jazzy/.../site-packages` 의 rclpy/launch/colcon) + colcon 워크스페이스 (`~/cobot_ws/install/`) 만 책임. host 에서 `pip install` 자체 안 함.
+- **책임 분리 원칙 (2026-05-27 사용자 결정)**: `bash install.sh` = host PC layer only (NVIDIA driver / Docker CE / ROS2 jazzy / CUDA toolkit / DSR colcon / RealSense SDK). `docker compose pull && up -d` = application layer (yolo / voice 컨테이너) — 사용자 별도 명령. install.sh 가 컨테이너 layer 호출 안 함. 신규 노트북 setup 흐름이 명시적 2-step. a06 잔여 책임은 최소 wrapper (`.env` placeholder 검증 + Docker Hub login 안내) 로 좁아짐.
 - **Voice 입력 소스 (2026-05-27)**: 노트북 내장 마이크. USB 외장 마이크 아님. voice-processing 컨테이너는 raw ALSA `/dev/snd` 가 아닌 PulseAudio/PipeWire socket mount (`${XDG_RUNTIME_DIR}/pulse`) 로 host audio 데몬 경유 — Ubuntu 24.04 기본 PipeWire 와 호환 + desktop mixer 충돌 회피.
 - **호스트 환경 = RTX 4060 Laptop** (노션 검증본): 데스크탑이 아닌 노트북. battery / built-in mic / built-in speaker / USB 포트 제한 (RealSense USB 3.0 + 기타 device 공존) 같은 노트북 제약 고려 필요.
 - **doosan-robot2 controller 통신 (2026-05-27 검증)**: host ↔ robot controller = **TCP socket port 12345 via DRFL** (Doosan Robot Framework Library, libpoco 의존). DDS 아님. DDS 는 ROS2 노드 간 통신만 — DSR_NODE 가 `/joint_states` publish, `/robot_command` subscribe. 즉 hardware ↔ DSR_NODE 는 TCP, DSR_NODE ↔ 다른 ROS2 노드는 DDS 두 layer.
