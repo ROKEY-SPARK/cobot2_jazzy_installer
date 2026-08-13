@@ -74,10 +74,6 @@ set -a; source ~/cobot2_jazzy_installer/resources/config.sh; set +a
 > set -a; source ~/cobot2_jazzy_installer/resources/config.sh; set +a
 > # <<< cobot2_jazzy_installer env <<<
 > ```
->
-> 마커 이름은 설치 스크립트가 쓰는 것과 같아야 한다 — 다르면 `hostcfg.sh` 가 자기 블록을
-> 못 찾아 같은 줄이 두 벌 쌓인다. 레포 이름이 바뀌기 전에 깔린 `ros2_jazzy_test` 마커
-> 블록은 설치 스크립트가 다음 실행에서 알아서 지운다.
 
 ### 기동
 
@@ -98,7 +94,6 @@ ros2 launch dsr_bringup2 dsr_bringup2_rviz.launch.py \
 **RealSense 카메라**
 
 ```bash
-# -r 두 개 필수 — 없으면 토픽이 /camera/camera/* 로 나와 소비자가 못 받는다
 ros2 run realsense2_camera realsense2_camera_node --ros-args \
   -r __ns:=/ -r __node:=camera \
   -p enable_color:=true -p enable_depth:=true \
