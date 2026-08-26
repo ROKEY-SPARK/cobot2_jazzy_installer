@@ -32,7 +32,7 @@ git clone -b jazzy https://github.com/ROKEY-SPARK/m0609_rg2_integration ~/m0609_
 ln -sfn ~/m0609_rg2_integration/src/m0609_rg2_bringup ~/cobot_venv_ws/src/m0609_rg2_bringup
 
 # 3) OnRobot RG2 그리퍼 드라이버 — 커밋 고정
-git clone https://github.com/ABC-iRobotics/onrobot-ros2 ~/cobot_venv_ws/src/onrobot-ros2
+git clone https://github.com/ROKEY-SPARK/onrobot-ros2 ~/cobot_venv_ws/src/onrobot-ros2
 git -C ~/cobot_venv_ws/src/onrobot-ros2 checkout c6e390313e831a2e54a0ad5894b2911cc360a16a
 
 # 4) od_msg — cobot2 소스에서 복사

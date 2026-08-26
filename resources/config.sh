@@ -43,7 +43,7 @@ export COBOT2_INSTALLER_REPO
 : "${M0609_REPO_DIR_LEGACY:=${HOME}/M0609_RG2_Integration}"
 
 # OnRobot RG2 그리퍼 ROS2 패키지 = description + msgs + Modbus 드라이버
-: "${ONROBOT_REPO_URL:=https://github.com/ABC-iRobotics/onrobot-ros2}"
+: "${ONROBOT_REPO_URL:=https://github.com/ROKEY-SPARK/onrobot-ros2}"
 : "${ONROBOT_COMMIT:=c6e390313e831a2e54a0ad5894b2911cc360a16a}"
 
 # --- 앱 워크스페이스 경로 (통합 cobot2_ws 하위) ------------------------------------
