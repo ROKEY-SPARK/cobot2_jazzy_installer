@@ -1,0 +1,37 @@
+# dev 브랜치 CI — 하드웨어 없이 돌아가는 검사만.
+#   shellcheck : 추적 중인 셸 스크립트 전부. backup/ 은 humble 시절 보존본이라 현행 규약이
+#                적용되지 않아 제외한다(지금 그대로 검사하면 SC2148/SC2006 등으로 항상 실패).
+#   테스트     : scripts/test-*.sh — 가짜 HOME · 합성 repo · python 스텁으로 도는 것들이라
+#                ROS / GPU / 로봇 없이 러너에서 그대로 통과한다.
+#
+# 대상 브랜치를 dev 로 좁힌 이유: scripts/ 는 .claude-main-exclude 에 있어 main 트리에 없다.
+# 반면 workflow 파일 자체는 제외 목록에 없어 main 으로 승격되므로, 브랜치를 안 좁히면
+# main 에서 이 job 이 항상 깨진다.
+#
+# 러너 이미지는 설치 대상 OS(noble)에 맞춰 핀 고정 — -latest 는 쓰지 않는다.
+name: ci
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: |
+          command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+          shellcheck --version
+          git ls-files '*.sh' | grep -v '^backup/' | xargs shellcheck -x
+
+      - name: hardware-free tests
+        run: |
+          for t in scripts/test-*.sh; do
+            echo "=== ${t} ==="
+            bash "${t}"
+          done
