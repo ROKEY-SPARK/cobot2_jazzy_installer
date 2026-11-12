@@ -162,3 +162,16 @@ ros2 run voice_processing get_keyword               # Ctrl+C → .py 수정 → 
 ros2 service call /get_keyword std_srvs/srv/Trigger "{}"
 # 응답 예: success=true, message='hammer / pos1' (도구 / 목적지)
 ```
+
+## 부록: 진단기
+
+설치가 끝난 뒤나 수업 중 문제가 생겼을 때 PC 상태를 점검한다. 읽기 전용이고 sudo가 필요 없다.
+
+```bash
+bash doctor/doctor.sh          # 설치 흔적으로 강의 자동 감지 (협동1, 협동2, 협동3, 지능1)
+bash doctor/doctor.sh cobot2   # 협동2만 지정
+```
+
+- 설치 누락, 패키지 깨짐, 공통 시스템 오류 (apt, 드라이버, DDS 설정 등)를 PASS, WARN, FAIL, SKIP으로 표시하고 FAIL 아래에 복구 방법을 적는다
+- 같은 노트북에 깐 협동1도 함께 확인한다
+- 점검 항목, 옵션, 개발 방법: [doctor/README.md](doctor/README.md)
